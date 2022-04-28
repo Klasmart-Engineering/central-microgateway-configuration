@@ -28,6 +28,7 @@ jobs:
 
   test-configuration:
     runs-on: ubuntu-latest
+    needs: [read-configuration]
     strategy:
       matrix:
         regions: ${{ fromJson(needs.read-configuration.outputs.regions-matrix) }}
