@@ -6,12 +6,25 @@ on:
       - main
 
 jobs:
+  read-configuration:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - id: set-matrix
+        run: |
+          JSON=$(cat ./microgateways.json)
+          echo "::set-output name=matrix::${JSON//'%'/'%25'}"
+
   sync:
     name: "Sync centrally managed configuration with microgateways"
+    needs: read-configuration
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        microgateway: ["KL-Engineering/factory-shared-microgateway"]
+        microgateway: ${{ fromJson(needs.read-configuration.outputs.matrix) }}
 
     # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
     defaults:
