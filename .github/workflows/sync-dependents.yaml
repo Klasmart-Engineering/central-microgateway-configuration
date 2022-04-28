@@ -42,7 +42,7 @@ jobs:
         with:
           repository: ${{ matrix.microgateway }}
           path: "target"
-          token: ${{ secrets.GH_PAT }}
+          token: ${{ secrets.GATEWAY_CONFIG_SYNC_BOT }}
       - name: Merge configuration
         id: merge-config
         run: |
@@ -69,7 +69,7 @@ jobs:
         uses: actions/github-script@v6
         if: steps.merge-config.outputs.commit-status != 'no-commit'
         with:
-          github-token: ${{ secrets.GH_PAT }}
+          github-token: ${{ secrets.GATEWAY_CONFIG_SYNC_BOT }}
           script: |
             const splitGateway = '${{ matrix.microgateway }}'.split('/');
             const owner = splitGateway[0];
