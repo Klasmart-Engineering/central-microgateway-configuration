@@ -23,35 +23,25 @@ jobs:
         name: Read supported regions and environments
         run: |
           REGIONS_JSON=$(cat ./regions.json)
-          echo $(cat ./regions.json)
           echo "::set-output name=regions-matrix::${REGIONS_JSON//'%'/'%25'}"
 
           ENVIRONMENTS_JSON=$(cat ./environments.json)
-          echo $(cat ./environments.json)
           echo "::set-output name=environments-matrix::${ENVIRONMENTS_JSON//'%'/'%25'}"
 
   test-configuration:
     runs-on: ubuntu-latest
     needs: read-configuration
-    # strategy:
-    #   matrix:
-    #     regions: ${{ fromJson(needs.read-configuration.outputs.regions-matrix) }}
-    #     environment: ${{ fromJson(needs.read-configuration.outputs.environments-matrix) }}
+    strategy:
+      matrix:
+        regions: ${{ fromJson(needs.read-configuration.outputs.regions-matrix) }}
+        environment: ${{ fromJson(needs.read-configuration.outputs.environments-matrix) }}
     steps:
       - name: Check out code
-        # uses: actions/checkout@v3
-        run: |
-          echo ${{ needs.read-configuration.outputs.regions-matrix }}
-          echo ${{ needs.read-configuration.outputs.environments-matrix }}
-      # - name: Build docker image
-      #   run: docker build -t validate -f Dockerfile.validate .
-      # - name: Log envs
-      #   env:
-      #     REGION: ${{ matrix.regions }}
-      #     ENVIRONMENT: ${{ matrix.environment }}
-      #   run: echo $REGION $ENVIRONMENT
-      # - name: Run validation
-      #   env:
-      #     REGION: ${{ matrix.regions }}
-      #     ENVIRONMENT: ${{ matrix.environment }}
-      #   run: docker run -e REGION=$REGION -e ENVIRONMENT=$ENVIRONMENT validate
+        uses: actions/checkout@v3
+      - name: Build docker image
+        run: docker build -t validate -f Dockerfile.validate .
+      - name: Run validation
+        env:
+          REGION: ${{ matrix.regions }}
+          ENVIRONMENT: ${{ matrix.environment }}
+        run: docker run -e REGION=$REGION -e ENVIRONMENT=$ENVIRONMENT validate
