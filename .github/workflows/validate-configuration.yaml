@@ -1,6 +1,10 @@
 name: Validate Microgateway Configuration
 
-on: workflow_call
+on:
+  workflow_call:
+    secrets:
+      token:
+        required: true
 
 jobs:
   read-configuration:
@@ -12,7 +16,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: "KL-Engineering/central-microgateway-configuration"
-          token: ${{ secrets.GH_PAT }}
+          token: ${{ secrets.token }}
 
       - id: set-matrix
         run: |
