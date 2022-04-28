@@ -1,0 +1,41 @@
+name: Validate Microgateway Configuration
+
+on: workflow_call
+
+jobs:
+  read-configuration:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - id: set-matrix
+        run: |
+          REGIONS_JSON=$(cat ./regions.json)
+          echo "::set-output name=regions-matrix::${REGIONS_JSON//'%'/'%25'}"
+
+          ENVIRONMENTS_JSON=$(cat ./environments.json)
+          echo "::set-output name=environments-matrix::${ENVIRONMENTS_JSON//'%'/'%25'}"
+
+  test-configuration:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        regions: ${{ fromJson(needs.read-configuration.outputs.regions-matrix) }}
+        environment: ${{ fromJson(needs.read-configuration.outputs.environments-matrix) }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Build docker image
+        run: docker build -t validate -f Dockerfile.validate .
+      - name: Log envs
+        env:
+          REGION: ${{ matrix.regions }}
+          ENVIRONMENT: ${{ matrix.environment }}
+        run: echo $REGION $ENVIRONMENT
+      - name: Run validation
+        env:
+          REGION: ${{ matrix.regions }}
+          ENVIRONMENT: ${{ matrix.environment }}
+        run: docker run -e REGION=$REGION -e ENVIRONMENT=$ENVIRONMENT validate
