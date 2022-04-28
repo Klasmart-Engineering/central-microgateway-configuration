@@ -42,7 +42,7 @@ jobs:
         with:
           repository: ${{ matrix.microgateway }}
           path: "target"
-          token: ${{ secrets.PACKAGES_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
       - name: Merge configuration
         id: merge-config
         run: |
@@ -63,7 +63,7 @@ jobs:
       - name: Create pull request
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.PACKAGES_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const splitGateway = '${{ matrix.microgateway }}'.split('/');
             const owner = splitGateway[0];
