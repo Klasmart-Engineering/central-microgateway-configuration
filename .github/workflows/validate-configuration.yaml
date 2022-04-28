@@ -10,6 +10,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          repository: "KL-Engineering/central-microgateway-configuration"
+          token: ${{ secrets.GH_PAT }}
+
       - id: set-matrix
         run: |
           REGIONS_JSON=$(cat ./regions.json)

@@ -58,10 +58,16 @@ jobs:
 
           git checkout -b $BRANCH_NAME
           git add .
-          git commit -m "chore(microgateway-sync): auto updated central configuration $GH_SHA" && git push --set-upstream origin $BRANCH_NAME || echo "No changes to commit"
-          echo "::set-output name=pr-branch-name::$BRANCH_NAME"
+          git commit -m "chore(microgateway-sync): auto updated central configuration $GH_SHA" && git push --set-upstream origin $BRANCH_NAME || touch no-commit
+
+          if [ -f "no-commit" ]; then
+            echo "::set-output name=commit-status::no-commit"
+          else 
+            echo "::set-output name=pr-branch-name::$BRANCH_NAME"
+          fi
       - name: Create pull request
         uses: actions/github-script@v6
+        if: steps.merge-config.outputs.commit-status != 'no-commit'
         with:
           github-token: ${{ secrets.GH_PAT }}
           script: |
