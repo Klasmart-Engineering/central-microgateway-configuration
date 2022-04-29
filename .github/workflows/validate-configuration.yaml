@@ -23,10 +23,16 @@ jobs:
         name: Read supported regions and environments
         run: |
           REGIONS_JSON=$(cat ./regions.json)
-          echo "::set-output name=regions-matrix::${REGIONS_JSON//'%'/'%25'}"
+          REGIONS_JSON="${REGIONS_JSON//'%'/'%25'}"
+          REGIONS_JSON="${REGIONS_JSON//$'\n'/'%0A'}"
+          REGIONS_JSON="${REGIONS_JSON//$'\r'/'%0D'}"
+          echo "::set-output name=regions-matrix::${REGIONS_JSON}"
 
           ENVIRONMENTS_JSON=$(cat ./environments.json)
-          echo "::set-output name=environments-matrix::${ENVIRONMENTS_JSON//'%'/'%25'}"
+          ENVIRONMENTS_JSON="${ENVIRONMENTS_JSON//'%'/'%25'}"
+          ENVIRONMENTS_JSON="${ENVIRONMENTS_JSON//$'\n'/'%0A'}"
+          ENVIRONMENTS_JSON="${ENVIRONMENTS_JSON//$'\r'/'%0D'}"
+          echo "::set-output name=environments-matrix::${ENVIRONMENTS_JSON}"
 
   test-configuration:
     runs-on: ubuntu-latest

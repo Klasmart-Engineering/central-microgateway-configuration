@@ -29,7 +29,10 @@ jobs:
         name: Read target microgateways
         run: |
           JSON=$(cat ./microgateways.json)
-          echo "::set-output name=matrix::${JSON//'%'/'%25'}"
+          JSON="${JSON//'%'/'%25'}"
+          JSON="${JSON//$'\n'/'%0A'}"
+          JSON="${JSON//$'\r'/'%0D'}"
+          echo "::set-output name=matrix::${JSON}"
 
   sync-plugins:
     name: "Sync plugin"
