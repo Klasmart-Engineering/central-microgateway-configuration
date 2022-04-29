@@ -90,6 +90,7 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
       - name: Build, tag and push kl-krakend image to Amazon ECR
+        id: build
         run: |
           export KRAKEND_VER="${{ needs.read-versions.outputs.krakend-version }}"
           export IMAGE_TAG="kl-krakend"
@@ -123,11 +124,10 @@ jobs:
           JSON="${JSON//$'\r'/'%0D'}"
           echo "::set-output name=matrix::${JSON}"
 
-
   sync:
     name: "Sync centrally managed dockerfiles with microgateways"
     runs-on: ubuntu-latest
-    needs: [builder-image, krakend-image]
+    needs: [builder-image, krakend-image, read-microgateways]
     strategy:
       matrix:
         microgateway: ${{ fromJson(needs.read-microgateways.outputs.matrix) }}
@@ -146,16 +146,16 @@ jobs:
 
           export BUILDER_IMAGE_VERSION="${{ needs.builder-image.outputs.image-version }}"
           export BUILDER_IMAGE_TAG="${{ needs.builder-image.outputs.image-tag }}"
-          sed -i '' 's/$BUILDER_IMAGE_TAG-[a-zA-Z0-9.].*/$BUILDER_IMAGE_TAG-$BUILDER_IMAGE_VERSION/' Dockerfile
+          sed -i "s/${BUILDER_IMAGE_TAG}-[a-zA-Z0-9.].*/${BUILDER_IMAGE_TAG}-${BUILDER_IMAGE_VERSION}/g" Dockerfile
 
           export KRAKEND_IMAGE_VERSION="${{ needs.krakend-image.outputs.image-version }}"
           export KRAKEND_IMAGE_TAG="${{ needs.krakend-image.outputs.image-tag }}"
-          sed -i '' 's/$KRAKEND_IMAGE_TAG-[a-zA-Z0-9.].*/$KRAKEND_IMAGE_TAG-$KRAKEND_IMAGE_VERSION/' Dockerfile
+          sed -i "s/${KRAKEND_IMAGE_TAG}-[a-zA-Z0-9.].*/${KRAKEND_IMAGE_TAG}-${KRAKEND_IMAGE_VERSION}/g" Dockerfile
 
           git config --global user.name 'microgateway-sync'
           git config --global user.email 'github-action@noreply.github.com'
 
-          BRANCH_NAME=microgateway-sync/krakend-KRAKEND_IMAGE_VERSION-builder-BUILDER_IMAGE_VERSION
+          BRANCH_NAME=microgateway-sync/krakend-$KRAKEND_IMAGE_VERSION-builder-$BUILDER_IMAGE_VERSION
 
           git checkout -b $BRANCH_NAME
           git add .
@@ -168,14 +168,14 @@ jobs:
           fi
       - name: Create pull request
         uses: actions/github-script@v6
-        if: steps.merge-config.outputs.commit-status != 'no-commit'
+        if: steps.update-dockerfile.outputs.commit-status != 'no-commit'
         with:
           github-token: ${{ secrets.GATEWAY_CONFIG_SYNC_BOT }}
           script: |
             const splitGateway = '${{ matrix.microgateway }}'.split('/');
             const owner = splitGateway[0];
             const repo = splitGateway[1];
-            const head = '${{ steps.merge-config.outputs.pr-branch-name }}';
+            const head = '${{ steps.update-dockerfile.outputs.pr-branch-name }}';
             const splitHead = head.split('/');
             const result = await github.rest.pulls.create({
               title: '[Sync] Auto-sync of centrally managed gateway configuration',
