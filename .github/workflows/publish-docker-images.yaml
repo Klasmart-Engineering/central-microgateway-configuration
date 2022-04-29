@@ -33,6 +33,9 @@ jobs:
   builder-image:
     runs-on: ubuntu-latest
     needs: read-versions
+    outputs:
+      image-version: ${{ steps.build.outputs.image-version }}
+      image-tag: ${{ steps.build.outputs.image-tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -48,6 +51,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build, tag and push kl-krakend-builder image to Amazon ECR
+        id: build
         run: |
           export GOLANG_VER="${{ needs.read-versions.outputs.golang-version }}"
           export IMAGE_TAG="kl-krakend-builder"
@@ -58,6 +62,10 @@ jobs:
           docker tag $ECR_REPOSITORY $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
 
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
+
+          echo "::set-output name=image-version::${IMAGE_VERSION}"
+          echo "::set-output name=image-tag::${IMAGE_TAG}"
+
         env:
           ECR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
           ECR_REPOSITORY: ${{ secrets.DOCKER_REPOSITORY }}
@@ -65,6 +73,9 @@ jobs:
   krakend-image:
     runs-on: ubuntu-latest
     needs: read-versions
+    outputs:
+      image-version: ${{ steps.build.outputs.image-version }}
+      image-tag: ${{ steps.build.outputs.image-tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -89,6 +100,106 @@ jobs:
           docker tag $ECR_REPOSITORY $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
 
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
+
+          echo "::set-output name=image-version::${IMAGE_VERSION}"
+          echo "::set-output name=image-tag::${IMAGE_TAG}"
         env:
           ECR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
           ECR_REPOSITORY: ${{ secrets.DOCKER_REPOSITORY }}
+
+  read-microgateways:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-microgateways.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - id: set-microgateways
+        name: Read from microgateway configuration
+        run: |
+          JSON=$(cat ./microgateways.json)
+          JSON="${JSON//'%'/'%25'}"
+          JSON="${JSON//$'\n'/'%0A'}"
+          JSON="${JSON//$'\r'/'%0D'}"
+          echo "::set-output name=matrix::${JSON}"
+
+
+  sync:
+    name: "Sync centrally managed dockerfiles with microgateways"
+    runs-on: ubuntu-latest
+    needs: [builder-image, krakend-image]
+    strategy:
+      matrix:
+        microgateway: ${{ fromJson(needs.read-microgateways.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ matrix.microgateway }}
+          token: ${{ secrets.GATEWAY_CONFIG_SYNC_BOT }}
+      - name: Update Dockerfile
+        id: update-dockerfile
+        run: |
+
+          export BUILDER_IMAGE_VERSION="${{ needs.builder-image.outputs.image-version }}"
+          export BUILDER_IMAGE_TAG="${{ needs.builder-image.outputs.image-tag }}"
+          sed -i '' 's/$BUILDER_IMAGE_TAG-[a-zA-Z0-9.].*/$BUILDER_IMAGE_TAG-$BUILDER_IMAGE_VERSION/' Dockerfile
+
+          export KRAKEND_IMAGE_VERSION="${{ needs.krakend-image.outputs.image-version }}"
+          export KRAKEND_IMAGE_TAG="${{ needs.krakend-image.outputs.image-tag }}"
+          sed -i '' 's/$KRAKEND_IMAGE_TAG-[a-zA-Z0-9.].*/$KRAKEND_IMAGE_TAG-$KRAKEND_IMAGE_VERSION/' Dockerfile
+
+          git config --global user.name 'microgateway-sync'
+          git config --global user.email 'github-action@noreply.github.com'
+
+          BRANCH_NAME=microgateway-sync/krakend-KRAKEND_IMAGE_VERSION-builder-BUILDER_IMAGE_VERSION
+
+          git checkout -b $BRANCH_NAME
+          git add .
+          git commit -m "chore(microgateway-sync): auto updated dockerfile with new base images" && git push --set-upstream origin $BRANCH_NAME || touch no-commit
+
+          if [ -f "no-commit" ]; then
+            echo "::set-output name=commit-status::no-commit"
+          else
+            echo "::set-output name=pr-branch-name::$BRANCH_NAME"
+          fi
+      - name: Create pull request
+        uses: actions/github-script@v6
+        if: steps.merge-config.outputs.commit-status != 'no-commit'
+        with:
+          github-token: ${{ secrets.GATEWAY_CONFIG_SYNC_BOT }}
+          script: |
+            const splitGateway = '${{ matrix.microgateway }}'.split('/');
+            const owner = splitGateway[0];
+            const repo = splitGateway[1];
+            const head = '${{ steps.merge-config.outputs.pr-branch-name }}';
+            const splitHead = head.split('/');
+            const result = await github.rest.pulls.create({
+              title: '[Sync] Auto-sync of centrally managed gateway configuration',
+              owner,
+              repo,
+              head,
+              base: 'main',
+              body: [
+                ':bangbang: :robot: This PR is auto-generated by [actions/github-script](https://github.com/actions/github-script)',
+                '',
+                'Changes have been made to the up-stream [centrally managed configuration](https://github.com/KL-Engineering/central-microgateway-configuration)',
+                '',
+                '|         | Branch          | SHA             |',
+                '| ------- | :-------------: | :-------------: |',
+                '| Details | `' + `${splitHead[1]}` + '` | `' + `${splitHead[2]}` + '` |',
+                '',
+                'Please review and merge this in as soon as possible.'
+              ].join('\n')
+            });
+            github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: result.data.number,
+              labels: ['automated pr', 'microgateway-sync']
+            });
+
+
