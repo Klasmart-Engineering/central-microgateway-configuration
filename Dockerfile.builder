@@ -1,4 +1,6 @@
-FROM golang:1.17-alpine
+ARG IMAGE_VERSION
+
+FROM golang:$IMAGE_VERSION
 
 RUN apk add make gcc musl-dev
 
