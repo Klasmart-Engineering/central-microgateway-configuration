@@ -144,18 +144,13 @@ jobs:
         id: update-dockerfile
         run: |
 
-          export BUILDER_IMAGE_VERSION="${{ needs.builder-image.outputs.image-version }}"
-          export BUILDER_IMAGE_TAG="${{ needs.builder-image.outputs.image-tag }}"
-          sed -i "s/${BUILDER_IMAGE_TAG}-[a-zA-Z0-9.].*/${BUILDER_IMAGE_TAG}-${BUILDER_IMAGE_VERSION}/g" Dockerfile
-
-          export KRAKEND_IMAGE_VERSION="${{ needs.krakend-image.outputs.image-version }}"
-          export KRAKEND_IMAGE_TAG="${{ needs.krakend-image.outputs.image-tag }}"
-          sed -i "s/${KRAKEND_IMAGE_TAG}-[a-zA-Z0-9.].*/${KRAKEND_IMAGE_TAG}-${KRAKEND_IMAGE_VERSION}/g" Dockerfile
+          sed -i "s/${{ needs.builder-image.outputs.image-tag }}-v[0-9.]*/${{ needs.builder-image.outputs.image-tag }}-${{ needs.builder-image.outputs.image-version }}/g" Dockerfile
+          sed -i "s/${{ needs.krakend-image.outputs.image-tag }}-v[0-9.]*/${{ needs.krakend-image.outputs.image-tag }}-${{ needs.krakend-image.outputs.image-version }}/g" Dockerfile
 
           git config --global user.name 'microgateway-sync'
           git config --global user.email 'github-action@noreply.github.com'
 
-          BRANCH_NAME=microgateway-sync/krakend-$KRAKEND_IMAGE_VERSION-builder-$BUILDER_IMAGE_VERSION
+          BRANCH_NAME=microgateway-sync/krakend-${{ needs.krakend-image.outputs.image-version }}-builder-${{ needs.builder-image.outputs.image-version }}
 
           git checkout -b $BRANCH_NAME
           git add .
@@ -188,9 +183,9 @@ jobs:
                 '',
                 'Changes have been made to the up-stream [centrally managed configuration](https://github.com/KL-Engineering/central-microgateway-configuration)',
                 '',
-                '|         | Branch          | SHA             |',
-                '| ------- | :-------------: | :-------------: |',
-                '| Details | `' + `${splitHead[1]}` + '` | `' + `${splitHead[2]}` + '` |',
+                '|         | Branch          |',
+                '| ------- | :-------------: |',
+                '| Details | `' + `${splitHead[1]}` + '` |',
                 '',
                 'Please review and merge this in as soon as possible.'
               ].join('\n')
