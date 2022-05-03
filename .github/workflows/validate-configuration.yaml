@@ -2,9 +2,19 @@ name: Validate Microgateway Configuration
 
 on:
   workflow_call:
+    inputs:
+      aws-role-session-name:
+        type: string
+        required: true
+      aws-region:
+        type: string
+        required: true
     secrets:
       github-token:
         required: true
+      aws-role-to-assume:
+        required: true
+
 
 jobs:
   read-configuration:
@@ -44,6 +54,14 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.aws-role-to-assume }}
+          role-session-name: ${{ inputs.aws-role-session-name }}
+          aws-region: ${{ inputs.aws-region }}
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
       - name: Build docker image
         run: docker build -t validate -f Dockerfile.validate .
       - name: Run validation
