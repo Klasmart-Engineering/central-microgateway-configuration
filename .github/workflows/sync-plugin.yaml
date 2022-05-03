@@ -16,6 +16,7 @@ on:
 jobs:
   read-configuration:
     runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
