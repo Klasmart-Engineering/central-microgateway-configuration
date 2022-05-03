@@ -145,6 +145,7 @@ jobs:
 
           sed -i "s/${{ needs.builder-image.outputs.image-tag }}-v[0-9.]*/${{ needs.builder-image.outputs.image-tag }}-${{ needs.builder-image.outputs.image-version }}/g" Dockerfile
           sed -i "s/${{ needs.krakend-image.outputs.image-tag }}-v[0-9.]*/${{ needs.krakend-image.outputs.image-tag }}-${{ needs.krakend-image.outputs.image-version }}/g" Dockerfile
+          sed -i "s/${{ needs.krakend-image.outputs.image-tag }}-v[0-9.]*/${{ needs.krakend-image.outputs.image-tag }}-${{ needs.krakend-image.outputs.image-version }}/g" Dockerfile.validate
 
           git config --global user.name 'microgateway-sync'
           git config --global user.email 'github-action@noreply.github.com'
