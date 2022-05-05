@@ -16,7 +16,6 @@ permissions:
 
 jobs:
   build-and-push:
-    needs: read-versions
     runs-on: ubuntu-latest
     name: Build & push image
     steps:
