@@ -4,10 +4,13 @@ on:
   release:
     types: [published, prereleased]
 
+env:
+  REGISTRY: ghcr.io
 
 permissions:
   id-token: write
   contents: read
+  packages: write
 
 jobs:
   read-versions:
@@ -29,172 +32,232 @@ jobs:
           echo "::set-output name=kl-builder-version::${KL_BUILDER_VERSION}"
           echo "::set-output name=kl-krakend-version::${KL_KRAKEND_VERSION}"
 
-  builder-image:
+  build-and-push-builder-image:
     runs-on: ubuntu-latest
-    needs: read-versions
-    outputs:
-      image-version: ${{ steps.build.outputs.image-version }}
-      image-tag: ${{ steps.build.outputs.image-tag }}
+    name: Build & push kl-builder image
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-session-name: kl-krakend-images-ecr
-          aws-region: eu-west-2
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+        with:
+          images: ${{ env.REGISTRY }}/kl-krakend-builder
+          tags: |
+            type=semver,pattern={{version}}
 
-      - name: Build, tag and push kl-krakend-builder image to Amazon ECR
-        id: build
+      - name: Echo tags
         run: |
-          export GOLANG_VER="${{ needs.read-versions.outputs.golang-version }}"
-          export IMAGE_TAG="kl-krakend-builder"
-          export IMAGE_VERSION="v${{ needs.read-versions.outputs.kl-builder-version }}"
+          echo "${{ steps.meta.outputs.tags }}"
+          echo "${{ steps.meta.outputs.labels }}"
 
-          docker build -t $ECR_REPOSITORY --build-arg IMAGE_VERSION=$GOLANG_VER -f Dockerfile.builder .
-
-          docker tag $ECR_REPOSITORY $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
-
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
-
-          echo "::set-output name=image-version::${IMAGE_VERSION}"
-          echo "::set-output name=image-tag::${IMAGE_TAG}"
-
-        env:
-          ECR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
-          ECR_REPOSITORY: ${{ secrets.DOCKER_REPOSITORY }}
-
-  krakend-image:
+  build-and-push-krakend-image:
     runs-on: ubuntu-latest
-    needs: read-versions
-    outputs:
-      image-version: ${{ steps.build.outputs.image-version }}
-      image-tag: ${{ steps.build.outputs.image-tag }}
+    name: Build & push kl-krakend image
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-session-name: kl-krakend-images-ecr
-          aws-region: eu-west-2
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
-      - name: Build, tag and push kl-krakend image to Amazon ECR
-        id: build
-        run: |
-          export KRAKEND_VER="${{ needs.read-versions.outputs.krakend-version }}"
-          export IMAGE_TAG="kl-krakend"
-          export IMAGE_VERSION="v${{ needs.read-versions.outputs.kl-krakend-version }}"
-
-          docker build -t $ECR_REPOSITORY --build-arg IMAGE_VERSION=$KRAKEND_VER -f Dockerfile.krakend .
-
-          docker tag $ECR_REPOSITORY $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
-
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
-
-          echo "::set-output name=image-version::${IMAGE_VERSION}"
-          echo "::set-output name=image-tag::${IMAGE_TAG}"
-        env:
-          ECR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
-          ECR_REPOSITORY: ${{ secrets.DOCKER_REPOSITORY }}
-
-  read-microgateways:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-microgateways.outputs.matrix }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - id: set-microgateways
-        name: Read from microgateway configuration
-        run: |
-          JSON=$(cat ./microgateways.json)
-          JSON="${JSON//'%'/'%25'}"
-          JSON="${JSON//$'\n'/'%0A'}"
-          JSON="${JSON//$'\r'/'%0D'}"
-          echo "::set-output name=matrix::${JSON}"
-
-  sync:
-    name: "Sync centrally managed dockerfiles with microgateways"
-    runs-on: ubuntu-latest
-    needs: [builder-image, krakend-image, read-microgateways]
-    strategy:
-      matrix:
-        microgateway: ${{ fromJson(needs.read-microgateways.outputs.matrix) }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout target repository
-        uses: actions/checkout@v3
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
         with:
-          repository: ${{ matrix.microgateway }}
-          token: ${{ secrets.GATEWAY_CONFIG_SYNC_BOT }}
-      - name: Update Dockerfile
-        id: update-dockerfile
+          images: ${{ env.REGISTRY }}/kl-krakend
+          tags: |
+            type=semver,pattern={{version}}
+
+      - name: Echo tags
         run: |
+          echo "${{ steps.meta.outputs.tags }}"
+          echo "${{ steps.meta.outputs.labels }}"
 
-          sed -i "s/${{ needs.builder-image.outputs.image-tag }}-v[0-9.]*/${{ needs.builder-image.outputs.image-tag }}-${{ needs.builder-image.outputs.image-version }}/g" Dockerfile
-          sed -i "s/${{ needs.krakend-image.outputs.image-tag }}-v[0-9.]*/${{ needs.krakend-image.outputs.image-tag }}-${{ needs.krakend-image.outputs.image-version }}/g" Dockerfile
-          sed -i "s/${{ needs.krakend-image.outputs.image-tag }}-v[0-9.]*/${{ needs.krakend-image.outputs.image-tag }}-${{ needs.krakend-image.outputs.image-version }}/g" Dockerfile.validate
+      # - name: Build and push Docker image
+      #   uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+      #   with:
+      #     context: .
+      #     push: true
+      #     tags: ${{ steps.meta.outputs.tags }}
+      #     labels: ${{ steps.meta.outputs.labels }}
 
-          git config --global user.name 'microgateway-sync'
-          git config --global user.email 'github-action@noreply.github.com'
+  # builder-image:
+  #   runs-on: ubuntu-latest
+  #   needs: read-versions
+  #   outputs:
+  #     image-version: ${{ steps.build.outputs.image-version }}
+  #     image-tag: ${{ steps.build.outputs.image-tag }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v3
 
-          BRANCH_NAME=microgateway-sync/krakend-${{ needs.krakend-image.outputs.image-version }}-builder-${{ needs.builder-image.outputs.image-version }}
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+  #         role-session-name: kl-krakend-images-ecr
+  #         aws-region: eu-west-2
 
-          git checkout -b $BRANCH_NAME
-          git add .
-          git commit -m "chore(microgateway-sync): auto updated dockerfile with new base images" && git push --set-upstream origin $BRANCH_NAME || touch no-commit
+  #     - name: Login to Amazon ECR
+  #       uses: aws-actions/amazon-ecr-login@v1
 
-          if [ -f "no-commit" ]; then
-            echo "::set-output name=commit-status::no-commit"
-          else
-            echo "::set-output name=pr-branch-name::$BRANCH_NAME"
-          fi
-      - name: Create pull request
-        uses: actions/github-script@v6
-        if: steps.update-dockerfile.outputs.commit-status != 'no-commit'
-        with:
-          github-token: ${{ secrets.GATEWAY_CONFIG_SYNC_BOT }}
-          script: |
-            const splitGateway = '${{ matrix.microgateway }}'.split('/');
-            const owner = splitGateway[0];
-            const repo = splitGateway[1];
-            const head = '${{ steps.update-dockerfile.outputs.pr-branch-name }}';
-            const splitHead = head.split('/');
-            const result = await github.rest.pulls.create({
-              title: '[Sync] Auto-sync of centrally managed gateway configuration',
-              owner,
-              repo,
-              head,
-              base: 'main',
-              body: [
-                ':bangbang: :robot: This PR is auto-generated by [actions/github-script](https://github.com/actions/github-script)',
-                '',
-                'Changes have been made to the up-stream [centrally managed configuration](https://github.com/KL-Engineering/central-microgateway-configuration)',
-                '',
-                '|         | Branch          |',
-                '| ------- | :-------------: |',
-                '| Details | `' + `${splitHead[1]}` + '` |',
-                '',
-                'Please review and merge this in as soon as possible.'
-              ].join('\n')
-            });
-            github.rest.issues.addLabels({
-              owner,
-              repo,
-              issue_number: result.data.number,
-              labels: ['automated pr', 'microgateway-sync']
-            });
+  #     - name: Build, tag and push kl-krakend-builder image to Amazon ECR
+  #       id: build
+  #       run: |
+  #         export GOLANG_VER="${{ needs.read-versions.outputs.golang-version }}"
+  #         export IMAGE_TAG="kl-krakend-builder"
+  #         export IMAGE_VERSION="v${{ needs.read-versions.outputs.kl-builder-version }}"
 
+  #         docker build -t $ECR_REPOSITORY --build-arg IMAGE_VERSION=$GOLANG_VER -f Dockerfile.builder .
 
+  #         docker tag $ECR_REPOSITORY $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
+
+  #         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
+
+  #         echo "::set-output name=image-version::${IMAGE_VERSION}"
+  #         echo "::set-output name=image-tag::${IMAGE_TAG}"
+
+  #       env:
+  #         ECR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  #         ECR_REPOSITORY: ${{ secrets.DOCKER_REPOSITORY }}
+
+  # krakend-image:
+  #   runs-on: ubuntu-latest
+  #   needs: read-versions
+  #   outputs:
+  #     image-version: ${{ steps.build.outputs.image-version }}
+  #     image-tag: ${{ steps.build.outputs.image-tag }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v3
+
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+  #         role-session-name: kl-krakend-images-ecr
+  #         aws-region: eu-west-2
+
+  #     - name: Login to Amazon ECR
+  #       uses: aws-actions/amazon-ecr-login@v1
+  #     - name: Build, tag and push kl-krakend image to Amazon ECR
+  #       id: build
+  #       run: |
+  #         export KRAKEND_VER="${{ needs.read-versions.outputs.krakend-version }}"
+  #         export IMAGE_TAG="kl-krakend"
+  #         export IMAGE_VERSION="v${{ needs.read-versions.outputs.kl-krakend-version }}"
+
+  #         docker build -t $ECR_REPOSITORY --build-arg IMAGE_VERSION=$KRAKEND_VER -f Dockerfile.krakend .
+
+  #         docker tag $ECR_REPOSITORY $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
+
+  #         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-$IMAGE_VERSION
+
+  #         echo "::set-output name=image-version::${IMAGE_VERSION}"
+  #         echo "::set-output name=image-tag::${IMAGE_TAG}"
+  #       env:
+  #         ECR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  #         ECR_REPOSITORY: ${{ secrets.DOCKER_REPOSITORY }}
+
+  # read-microgateways:
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     matrix: ${{ steps.set-microgateways.outputs.matrix }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v3
+  #     - id: set-microgateways
+  #       name: Read from microgateway configuration
+  #       run: |
+  #         JSON=$(cat ./microgateways.json)
+  #         JSON="${JSON//'%'/'%25'}"
+  #         JSON="${JSON//$'\n'/'%0A'}"
+  #         JSON="${JSON//$'\r'/'%0D'}"
+  #         echo "::set-output name=matrix::${JSON}"
+
+  # sync:
+  #   name: "Sync centrally managed dockerfiles with microgateways"
+  #   runs-on: ubuntu-latest
+  #   needs: [builder-image, krakend-image, read-microgateways]
+  #   strategy:
+  #     matrix:
+  #       microgateway: ${{ fromJson(needs.read-microgateways.outputs.matrix) }}
+  #   defaults:
+  #     run:
+  #       shell: bash
+  #   steps:
+  #     - name: Checkout target repository
+  #       uses: actions/checkout@v3
+  #       with:
+  #         repository: ${{ matrix.microgateway }}
+  #         token: ${{ secrets.GATEWAY_CONFIG_SYNC_BOT }}
+  #     - name: Update Dockerfile
+  #       id: update-dockerfile
+  #       run: |
+
+  #         sed -i "s/${{ needs.builder-image.outputs.image-tag }}-v[0-9.]*/${{ needs.builder-image.outputs.image-tag }}-${{ needs.builder-image.outputs.image-version }}/g" Dockerfile
+  #         sed -i "s/${{ needs.krakend-image.outputs.image-tag }}-v[0-9.]*/${{ needs.krakend-image.outputs.image-tag }}-${{ needs.krakend-image.outputs.image-version }}/g" Dockerfile
+  #         sed -i "s/${{ needs.krakend-image.outputs.image-tag }}-v[0-9.]*/${{ needs.krakend-image.outputs.image-tag }}-${{ needs.krakend-image.outputs.image-version }}/g" Dockerfile.validate
+
+  #         git config --global user.name 'microgateway-sync'
+  #         git config --global user.email 'github-action@noreply.github.com'
+
+  #         BRANCH_NAME=microgateway-sync/krakend-${{ needs.krakend-image.outputs.image-version }}-builder-${{ needs.builder-image.outputs.image-version }}
+
+  #         git checkout -b $BRANCH_NAME
+  #         git add .
+  #         git commit -m "chore(microgateway-sync): auto updated dockerfile with new base images" && git push --set-upstream origin $BRANCH_NAME || touch no-commit
+
+  #         if [ -f "no-commit" ]; then
+  #           echo "::set-output name=commit-status::no-commit"
+  #         else
+  #           echo "::set-output name=pr-branch-name::$BRANCH_NAME"
+  #         fi
+  #     - name: Create pull request
+  #       uses: actions/github-script@v6
+  #       if: steps.update-dockerfile.outputs.commit-status != 'no-commit'
+  #       with:
+  #         github-token: ${{ secrets.GATEWAY_CONFIG_SYNC_BOT }}
+  #         script: |
+  #           const splitGateway = '${{ matrix.microgateway }}'.split('/');
+  #           const owner = splitGateway[0];
+  #           const repo = splitGateway[1];
+  #           const head = '${{ steps.update-dockerfile.outputs.pr-branch-name }}';
+  #           const splitHead = head.split('/');
+  #           const result = await github.rest.pulls.create({
+  #             title: '[Sync] Auto-sync of centrally managed gateway configuration',
+  #             owner,
+  #             repo,
+  #             head,
+  #             base: 'main',
+  #             body: [
+  #               ':bangbang: :robot: This PR is auto-generated by [actions/github-script](https://github.com/actions/github-script)',
+  #               '',
+  #               'Changes have been made to the up-stream [centrally managed configuration](https://github.com/KL-Engineering/central-microgateway-configuration)',
+  #               '',
+  #               '|         | Branch          |',
+  #               '| ------- | :-------------: |',
+  #               '| Details | `' + `${splitHead[1]}` + '` |',
+  #               '',
+  #               'Please review and merge this in as soon as possible.'
+  #             ].join('\n')
+  #           });
+  #           github.rest.issues.addLabels({
+  #             owner,
+  #             repo,
+  #             issue_number: result.data.number,
+  #             labels: ['automated pr', 'microgateway-sync']
+  #           });
