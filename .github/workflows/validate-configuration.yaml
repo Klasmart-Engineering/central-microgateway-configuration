@@ -55,18 +55,22 @@ jobs:
         regions: ${{ fromJson(needs.read-configuration.outputs.regions-matrix) }}
         environment: ${{ fromJson(needs.read-configuration.outputs.environments-matrix) }}
     steps:
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: ${{ secrets.aws-role-to-assume }}
-          role-session-name: ${{ inputs.aws-role-session-name }}
-          aws-region: ${{ inputs.aws-region }}
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
+          submodules: "recursive"
+          token: ${{ secrets.github-token }}
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build docker image
         run: docker build -t validate -f Dockerfile.validate .
+
       - name: Run validation
         env:
           REGION: ${{ matrix.regions }}
