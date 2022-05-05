@@ -2,6 +2,16 @@
 
 This repository holds all the shared configuration that is injected into every microgateway
 
+## Creating a new Microgateway
+
+1. Use [Microgateway Template](https://github.com/KL-Engineering/microgateway-template) as a template for your repository
+2. Raise a PR to add your repository name to [microgateways.json](microgateways.json)
+3. Let one of the API Management team know that you have a new gateway, so that they can grant access for your repository to use the centrally managed docker images
+   1. Go to packages (and for both `kl-krakend-builder` and `kl-krakend`)
+   2. Click `Package Settings` _bottom right_
+   3. **Manage Actions Access**
+      1. Add the repository to here only `Read` access is needed
+
 ## What does this repository contain
 
 - Centrally managed configuration
