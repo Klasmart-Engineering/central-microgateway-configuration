@@ -2,17 +2,8 @@ name: Validate Microgateway Configuration
 
 on:
   workflow_call:
-    inputs:
-      aws-role-session-name:
-        type: string
-        required: true
-      aws-region:
-        type: string
-        required: true
     secrets:
       github-token:
-        required: true
-      aws-role-to-assume:
         required: true
 
 permissions:
