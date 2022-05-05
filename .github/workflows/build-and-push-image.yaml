@@ -5,8 +5,6 @@ on:
     secrets:
       github-repo-token:
         required: true
-      github-package-token:
-        required: true
 
 env:
   REGISTRY: ghcr.io
@@ -32,7 +30,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.github-package-token }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
