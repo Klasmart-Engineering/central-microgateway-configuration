@@ -58,7 +58,7 @@ jobs:
         uses: docker/login-action@v1
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
+          username: github-user-kidsloop
           password: ${{ secrets.github-package-token }}
 
       - name: Build docker image
