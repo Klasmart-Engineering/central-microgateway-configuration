@@ -8,6 +8,9 @@ on:
       github-package-token:
         required: true
 
+env:
+  REGISTRY: ghcr.io
+
 permissions:
   id-token: write
   contents: read # This is required for actions/checkout
