@@ -49,3 +49,11 @@ This repository holds all the shared configuration that is injected into every m
 | Production Docker Image | [Microgateway Template](https://github.com/KL-Engineering/microgateway-template)   | A production ready dockerfile _that can be customized if needed_ for a microgateway deployment                         |
 | Validation Docker Image | [Microgateway Template](https://github.com/KL-Engineering/microgateway-template)   | A docker image that can automatically validate your multi-file krakend.json configuration - _intended to be run in ci_ |
 | Helm Charts             | [Microgateway Base Helm](https://github.com/KL-Engineering/microgateway-base-helm) | The base helm charts for a microgateway deployment, please provide your own `values.yaml` file in your repository      |
+
+## Custom plugins
+
+Plugins that are built and maintained in-house by KidsLoop
+
+| Name     | Repository                                                                     | Description                                                                                                 |
+| -------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Wildcard | [API Gateway Wildcard](https://github.com/KL-Engineering/api-gateway-wildcard) | Supports wildcard routing based off a given prefix eg. send everything that starts with `/foo` to service A |
