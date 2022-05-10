@@ -5,7 +5,7 @@ on:
     types: [published, prereleased]
 
 jobs:
-  read-microgateways:
+  read-sync-targets:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -15,10 +15,11 @@ jobs:
       - id: set-matrix
         name: Read from microgateway configuration
         run: |
-          JSON=$(cat ./microgateways.json)
+          JSON=$(jq -n '[ inputs ] | add' microgateways.json managed-repositories.json)
           JSON="${JSON//'%'/'%25'}"
           JSON="${JSON//$'\n'/'%0A'}"
           JSON="${JSON//$'\r'/'%0D'}"
+
           echo "::set-output name=matrix::${JSON}"
 
   read-versions:
@@ -42,11 +43,11 @@ jobs:
 
   sync-configuration:
     name: "Sync centrally managed configuration with microgateways"
-    needs: read-microgateways
+    needs: read-sync-targets
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        microgateway: ${{ fromJson(needs.read-microgateways.outputs.matrix) }}
+        microgateway: ${{ fromJson(needs.read-sync-targets.outputs.matrix) }}
 
     defaults:
       run:
@@ -124,10 +125,10 @@ jobs:
   sync-docker-images:
     name: "Sync centrally managed dockerfiles with microgateways"
     runs-on: ubuntu-latest
-    needs: [read-versions, read-microgateways]
+    needs: [read-versions, read-sync-targets]
     strategy:
       matrix:
-        microgateway: ${{ fromJson(needs.read-microgateways.outputs.matrix) }}
+        microgateway: ${{ fromJson(needs.read-sync-targets.outputs.matrix) }}
     defaults:
       run:
         shell: bash
