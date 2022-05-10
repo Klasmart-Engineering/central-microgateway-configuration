@@ -142,9 +142,14 @@ jobs:
         id: update-dockerfile
         run: |
 
-          sed -i "s/kl-krakend-builder:[0-9.]*/kl-krakend-builder:${{ needs.read-versions.outputs.kl-builder-version }}/g" Dockerfile
-          sed -i "s/kl-krakend:[0-9.]*/kl-krakend:${{ needs.read-versions.outputs.kl-krakend-version }}/g" Dockerfile
-          sed -i "s/kl-krakend:[0-9.]*/kl-krakend:${{ needs.read-versions.outputs.kl-krakend-version }}/g" Dockerfile.validate
+          if [ -f "Dockerfile" ]; then 
+            sed -i "s/kl-krakend-builder:[0-9.]*/kl-krakend-builder:${{ needs.read-versions.outputs.kl-builder-version }}/g" Dockerfile
+            sed -i "s/kl-krakend:[0-9.]*/kl-krakend:${{ needs.read-versions.outputs.kl-krakend-version }}/g" Dockerfile
+          fi
+
+          if [ -f "Dockerfile.validate" ]; then 
+            sed -i "s/kl-krakend:[0-9.]*/kl-krakend:${{ needs.read-versions.outputs.kl-krakend-version }}/g" Dockerfile.validate
+          fi
 
           git config --global user.name 'microgateway-sync'
           git config --global user.email 'github-action@noreply.github.com'
