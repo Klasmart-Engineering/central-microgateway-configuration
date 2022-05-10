@@ -157,6 +157,10 @@ jobs:
             sed -i "s/kl-krakend:[0-9.]*/kl-krakend:${{ needs.read-versions.outputs.kl-krakend-version }}/g" Dockerfile.validate
           fi
 
+          if [ -f "go.mod" ]; then
+            sed -i "s/github.com\/luraproject\/lura\/v2 v[0-9.]*/github.com\/luraproject\/lura\/v2 v${{ needs.read-versions.outputs.krakend-version }}/g" go.mod
+          fi
+
           git config --global user.name 'microgateway-sync'
           git config --global user.email 'github-action@noreply.github.com'
 
