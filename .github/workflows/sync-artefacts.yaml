@@ -16,7 +16,7 @@ jobs:
       - id: set-matrix
         name: Read from microgateway configuration
         run: |
-          JSON=$(jq -n '[ inputs ] | add' microgateways.json managed-repositories.json)
+          JSON=$(jq -n '[ inputs ] | add' microgateways.json plugins.json)
           JSON="${JSON//'%'/'%25'}"
           JSON="${JSON//$'\n'/'%0A'}"
           JSON="${JSON//$'\r'/'%0D'}"
