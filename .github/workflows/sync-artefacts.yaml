@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      microgateways: ${{ steps.set-matrix.outputs.microgateways }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -19,8 +20,13 @@ jobs:
           JSON="${JSON//'%'/'%25'}"
           JSON="${JSON//$'\n'/'%0A'}"
           JSON="${JSON//$'\r'/'%0D'}"
-
           echo "::set-output name=matrix::${JSON}"
+
+          MG_JSON=$(cat microgateways.json)
+          MG_JSON="${MG_JSON//'%'/'%25'}"
+          MG_JSON="${MG_JSON//$'\n'/'%0A'}"
+          MG_JSON="${MG_JSON//$'\r'/'%0D'}"
+          echo "::set-output name=microgateways::${MG_JSON}"
 
   read-versions:
     runs-on: ubuntu-latest
@@ -47,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        microgateway: ${{ fromJson(needs.read-sync-targets.outputs.matrix) }}
+        microgateway: ${{ fromJson(needs.read-sync-targets.outputs.microgateways) }}
 
     defaults:
       run:
