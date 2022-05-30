@@ -1,4 +1,5 @@
 [
     "KL-Engineering/microgateway-custom-plugin-template",
-    "KL-Engineering/api-gateway-wildcard"
+    "KL-Engineering/api-gateway-wildcard",
+    "KL-Engineering/access-log-plugin"
 ]
